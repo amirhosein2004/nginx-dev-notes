@@ -1,0 +1,503 @@
+NOTE: The content of this file has been organized and formatted into structured Markdown documentation.
+
+Please refer to:
+- README_FA.md - Persian (فارسی) version
+- ../README.md - Main repository README
+- README.md - English version
+
+The original unformatted content follows below:
+
+---
+
+nginx
+وب سرور بسیار سبک برای سرویس دادن به درخواست‌ها می‌باشد. این نرم‌افزار برای نصب به‌عنوان reverse proxy و bad balancing استفاده می‌شود که از محبوب‌ترین‌ها می‌باشد(دریافت در خواست های کاربران و مدیریت انها و پاسخ دادن به سرور)
+تفاوت‌های Apache و nginx:
+Apache قدیمی‌تر از nginx هست. می‌تواند از XML استفاده کند.
+Apache برای پیکربندی از فایل‌های htaccess استفاده می‌کند.
+nginx قابلیت‌های زیادی برای پیکربندی دارد. سرعت بالاتری نسبت به Apache دارد.
+Apache به صورت پیش‌فرض فایل‌های index.html را نمایش می‌دهد ولی nginx باید به صورت دستی پیکربندی شود.
+نصب nginx:
+برای نصب nginx در ubuntu دستور زیر را می‌نویسیم:
+apt-get install nginx
+برای اینکه ببینیم سرور فعال است یا نه از دستور:
+ps aux | grep nginx
+استفاده می‌کنیم.
+IP های داخلی در کانتینر private هستند مثل: 172.17.x.x یعنی خارج از دسترسی جهانی (مثلاً اینترنت) هستند.
+و برای اینکه از کانتینر به سیستم لوکال وصل شویم در پورت ۸۰ برای تست nginx در لوکال خودمان باید:
+docker run ... -p 8080:80 ... 
+در واقع داریم کاری می‌کنیم تا سرور nginx داخل کانتینر به لوکال مرورگر وصل شود
+و در آخر فایل پیکربندی nginx در داخل مسیر زیر می‌باشد:
+/etc/nginx/
+برای استارت کردن nginx کافی است در ترمینال nginx را بزنیم
+
+
+
+
+
+
+
+
+systemD: این سرویس برنامه ها را خودکار اجرا می‌کند
+وقتی یک سرویس را خودمان اضافه می کنیم یا تغییر می دهیم بهتر است داخل مسیر / etc / systemd / system به نویسیم و زخیره کنیم. حال فایل config در مسیر etc / systemd / system / nginx.service قرار می دهیم به این صورت:
+[Unit]          توضیح کلی سرویس و اینکه این سرویس بعد از چه چیزی باید شروع شود
+...
+[Service]       چطور سرویس را start، stopو reload کنیم
+...
+PIDFile = /var/run/nginx.pid        یک برنامه که اجرا شود سیستم عامل یک process id به آن می دهد. این فایل این را زخیره می کند.
+ExecStartPre = /usr/bin/nginx -t        مسیر باینری nginx است که برنامه اجرایی واقعی ان با ان اجرا میشود 
+ExecStart = /usr/bin/nginx          مسیر باینری nginx است که برنامه اجرایی واقعی ان با ان اجرا میشود 
+...
+[Install]       برای چه هدفی این سرویس فعال میشود 
+...
+با دستور systemctl start nginx سرویس nginx اجرا می‌شود
+و systemctl status nginx وضعیت سرویس را نشان می‌دهد.
+
+
+
+
+
+
+
+
+
+فعال یا غیرفعال: nginx برای اینکه nginx در هر بار روشن شدن سرور به صورت خودکار اجرا شود دستور:
+systemctl enable nginx
+این دستور خودکار nginx به صورت اتوماتیک اجرا می شود.
+برای غیرفعال کردن آن:
+systemctl disable nginx
+نکته: بدون systemd ما باید خودمان دستی nginx را start, stop, reload میکردیم
+nginx -s stop / start nginx / nginx -s reload
+که -s یک Signal است (master process)
+تنظیمات nginx: فایل تنظیمات nginx در مسیر etc/nginx/nginx.conf/ قرار دارد
+در فایل تنظیمات بخش های مخلفی داریم: event, http, main
+در فایل nginx.conf سه بخش اصلی داریم: event 1. دستورات اتصالات مثل تعداد کاربرهمزمان مشخص می‌شود
+http 2. مربوط به سرویس http می باشد (است، تنظیمات مانند mimetype کش و فشرده سازی و ...)
+main 3. تنظیمات عمومی سرویس nginx مانند worker proccess
+Server: سرور بلاک یا virtual host درون بخش http قرار میگیرد و این بخش میتواند چندین server بلاک داشته باشد که هر کدام برای یک دامنه یا زیر دامنه یا آي پی کار کند.
+server {
+    listen 80;          پورت ۸۰ مخصوص http است (بدون رمز نگاری) اگر ۴۳۳ بود https بود
+    server_name name;       نام دامنه یا آدرس IP سروری که این تنظیمات برای آن اعمال می شوند را مشخص می کند.
+    root /sites/demo;       دایرکتوری ریشه ای که فایل های وب سایت در آن قرار دارند را مشخص می کند.
+}
+
+
+
+
+
+
+
+
+نکته: با دستور t- nginx می‌توانیم به خطای syntax نوشته شده پی ببریم.
+تنظیمات MIME TYPE: در ابتدا, Nginx نمی داند که باید CSS ها را به صورت text/css ارسال کند. برای رفع مشکل در بلاک HTTP یک بلاک جدید باز می کنیم به نام :
+types {
+    text/html html;
+    text/css css;
+}
+البته این مبحث است اگر خودتان دستی استفاده نکنید، این قسمت استاندارد دارد، می‌توانید از فایل‌های آماده که در /etc/nginx/mime.types استفاده کنیم:
+include mime.types;
+این در داخل بلاک http قرار می دهیم.
+نکته: nginx کاربران را (کاربر) www-data اجرا می‌شود.
+نکته: root در تنظیمات Server به این معنی است که در nginx میگوید فایل های استاتیک وبسایت شما کجا قرار دارد.
+
+
+
+
+
+
+
+
+location: در nginx برای match کردن URL های درخواست شده و تعیین مسیر برای آنها استفاده می‌شود
+location [modifier] Path{...}
+این بلاک درون بلاک server نوشته می‌شود.
+انواع Path ها: Prefix 1. هر آدرسی که با greet شروع شود مثلا greeting و...   (/greet)
+Exact Match 2. هر آدرسی که دقیقا برابر greet باشد       (= /greet)
+Regular expression Match 3. برای عبارات منظم ابتدا باید از  ~ استفاده کنیم      (~ /greet[0-9])
+در این حالت که از  ~ استفاده میکنیم به حروف کوچک و بزرگ حساس است تمت * ~ به حروف کوچک و بزرگ حساس نیست.
+Preferential Prefix 4. اگر یه مسیری مانند prefix/js/name را هم بدهیم به مسیر الگو میرود     (^ ~ /prefix)
+variables: nginx شبیه زبان های برنامه نویسی است
+Built-in 1. متغیرهای ثابت nginx معمولا با $ شروع میشوند مانند:
+1 $host: نام هاست(دامین)
+2 $uri: مسیر درخواستی
+3 $args: تمام query string ها
+2 توسط کاربر: با set میتوانیم متغیر دلخواه تعریف کنیم:
+set $weekend "no";
+if Statements: از شرط‌ها می‌تونم استفاده کنیم. if ($arg_api_key != "1234"){...}
+با regex هم متونیم مقایسه کنیم: if ($date_local ~ "Saturday|Sunday"){...}
+
+
+
+
+
+
+
+rewrite: برای تغییر مسیر داخلی درخواست در سرور است(در آدرس url تغییری نمی‌کند)
+rewrite [flag] Path
+return: برای برگرداندن سریع پاسخ به کلاینت استافده میشود.
+return [کد] [متن]
+| دستور    | rewrite                                   | return                             |
+| :-------- | :---------------------------------------- | :--------------------------------- |
+| variable type | Internal rewrite                      | redirect
+| Simplicity    | Flexible but complex                  | Simple and direct 
+| change url    | no                                    | yes
+| suitable for  | Internal redirection without user knowledge  | Redirect to new URL
+| Regex support | yes                                   | no
+flags: پس از rewrite چه کاری انجام دهد:
+last 1. بازنویسی انجام شد برود به location جدید 
+break 2. بازنویسی انجام می شود. اما location جدید بررسی نمی شود.
+redirect 3. باعث ریدایرکت موقتی می‌شود
+permanent 4. مثل redirect ولی دائمی است.
+
+
+
+
+
+
+
+capture groups: بخشی از ادرس که با regex مشخص میشه
+مثال:   rewrite ^/user/(\w+)$ /greet/$1 last;
+مسیر با آدرس /user/ شروع شود و (\w+) یعنی یک یا چند حرف یا عدد $1 همان چیزی است که در پرانتز اول گرفته شده
+try_files: این دستور مسیرهای مختلف فایلها، دایرکتوری ها یا حتی مسیرهای بازنویسی شده را به ترتیب بررسی می کند و اولی موردی که بود را اجرا می کند.
+try_files path1... path2... N;
+نکته: این دستور را میتوان در بلاک های server یا location استفاده کرد.
+نکته: علامت @ به این معنی است که یک مسیر داخلی میسازیم این مسیر در مروگر دیده نمیشود و فقط برای هدایت های داخلی سرور انجام میشود.
+نکته: اخرین ارگومان در try_files بسیار حساس است زیرا اگر تمام مسیر های قبلی پیدا نشوند و مسیر آخر نامناسب باشد nginx خطای 404 میدهد یا گیچ میشود برای همین آخرین آرگومان یا یک فایل واقعی یا مسیر داخلی است.
+
+
+
+
+
+
+
+logging: درباره سیستم لاگ گیری در nginx حرف میزنیم.
+1 access log: تمام درخواست هایی که به سرور ارسال میشوند در این فایل ثبت میشوند (آدرس ها , ip کاربر , ...) 
+2 Error log: هر چیزی که به درستی انجام نشده در این فایل ثبت میشود  (خطا های کانفیگ , permissions , ...) 
+هر دو فایل لاگ به صورت پیش فرض فعال هستند و در مسیر /var/log/nginx قرار دارند.
+کاربرد ها : بررسی خطا ها و ردیابی درخواست ها و شناسایی کاربران مشکوک و بهینه سازی منابع
+حتی وقتی فایل مثل user,png در مرورگر فراخوانی شود در access.log ثبت میشود.
+اگر فایل موجود نباشد در access.log یک خطایی 404 ثبت می شود، معمولاً در error.log ثبت نمی شود، مگر یک خطایی واقعی در config یا مسیر رخ داده باشد.
+نکته: برای غیر فعال مردن لاگ گیری access_log off; را مینویسیم  (برای مسیر های پرترافیک js یا css یا عکس ها و ...)
+لاگ گیری سفارشی : به عنوان مثال :           location /secture {
+                                                return 200 "wellcome to secure area";
+                                                access_log /var/log/nginx/secure-access.log;
+}
+حال درخواست ها به این مسیر  (/secure) در فایل secure_access.log ذخیره میشوند.
+نکته: این را هم بگویک در یک مسیر میتوانسم درخوسات ها را در چند فایل log هم ذخیره کنیم
+نکته: معمولا فقط لاگ های error را نگه میدارند و سایر لاگ ها را غیر فعال یا فشسرده میکنند تا منابع سرور اشغال  نشوند 
+
+
+
+
+
+
+
+inheritance: در nginx مانند زبان های برنامه نویسی context های داخلی مانند server, location تنظیمات خود را از context های بالاتر مانند http یا main به ارث میبرند.
+main 
+    |
+     ----- http
+              |
+              ---- server
+                        |
+                        ----- location
+Directive: هر خط تنظیمات در nginx معمولا یک directive است
+1 array directives: میتوان چند بار از آن در context استفاده کرد به عن.ان مثال اگر یک دسترسی به این صورت داشته باشیم:
+http {
+    access_log /var/log/nginx//http.log;
+    server {
+        access_log off;
+        location /name (
+            access_log /var/log/nginx/name.log;     در اینجا فقط همین دستور اخری اجرا میشود  (انگار override میشود )
+        )
+    }
+}
+مثال از array directive: access_log, error_page, add_header, ...
+2 standard directives:فقط یکبار میتوان ان را در یک context تعریف کرد مقدار ان ها از بالا به پایین ارث بری میشود در صورت تعریف در سطح پایین تر مقدار جدید جایگزین قبلی میشود 
+مقال از standard directives: root, index, clies_max_body_size, ....
+3 action directives: دستوراتی که باعث اجرای یک عملیات خاص میشوند ارث بری هم ندارند مانند : return, rewrite, ...
+
+
+
+
+
+
+nginx proccess: nginx خودش زبان های سمت سرور مانند php, python(django) را اجرا نمیکند برای این کار باید یک سرویس مستقل اجرا کنیم که nginx درخواست هارا برای پردازش به ان ارسال کرده مانند php-frm, gunicorn, ...در اصل nginx به عنوان یک reverse proxy عمل می‌کند
+ما باید آن سرویس را نصب کرده و در ادامه تنظیمات مربوط به ان سرویس را مینویسیم به عنوان مثال در django برای gunicorn:
+location /static/ {
+    alias /path/to/your/static/;        
+}
+location / {
+    proxy_pass https://127.0.0.1:8000;
+    proxy_set_header
+    proxy_set_header Host $host
+    proxy_set_header X_Real_Ip ....
+    proxy_set_header ....
+}
+
+
+
+
+
+master proccess: فرآیند اصلی است که nginx را مدیریت میکند.
+worker proccess: فرآیند های کاری هستند که درخواست های کاربران را پردازش میکنند 
+دستور worker_proccess مشخص میکند چه فرآیند کاری اجرا شود  (بهتر است تعداد آن برابر با تعدا هسته های cpu باشد)
+برای تنظیم بصورت خودکار : worker_proccess auto;
+دستور  worker_connections مشخص میکند هر فرآیند کاری  (worker proccess) در nginx چند اتصال همزمان میتواند داشته بشاد 
+عدد worker_connections نمیتواند بیشتر از تعدا فایل های باز در سیستم باشد برای دیدن این عدد ulimit -n را باید بزنیم
+نکته : ظرفیت واقعی سرور : worker_proccess * worker_connections
+
+
+
+
+
+
+Buffer: مقدار موقت داده ای که در حافظه ذخیره میشود.
+timeout: حداکثر زمانی که سرور برای انجام یک عملیات منتظر میماند
+تنظیمات کلیدی:
+| command        | use          | Suggested amount     | Important point
+--------------------------------------------------------------------------
+|      client_body_buffer_size          |    Temporary storage of post data          |        10K              |        If it is too much, the data will go to disk (slowly). If it is too much, memory will be wasted.
+|      client_many_body_size        |       Maximum allowed size for post       |            8M          |          If it is more than that, it returns a 413 error. Suitable for forms and uploads.
+|      client_header_buffer_size          |      Memory for request headers        |          1K            |       Sufficient for most applications
+|      client_body_timeout          |       Waiting time to receive the entire body       |       12s(or less)               |      If the client is slow, the server won't wait.
+|      client_header_timeout          |      Waiting time to receive headers        |        12s              |     Similar to above but only for headers
+|      keepalive_timeout          |      The duration of the connection        |           15s           |          If it is too high, resources are wasted. If it is too low, the connection is permanently disconnected.
+|      send_timeout          |      Waiting time for data transmission        |           10s           |       Prevent resource occupation in inefficient clients
+|      sendfile on          |      Send files directly from disk        |          ----            |        High speed for large files (without using RAM)
+|      tcp_nopush on          |       TCP packet optimization       |          ----            |        To better send large files
+
+
+
+
+
+
+modules: ماژول ها در Nginx اجزایی هستن که قابلیت اضافی به وب سرور اضافه می کنند. در واقع Nginx به صورت ماژولارر ظراحی شده.
+1 static: در زمان کامپایل Nginx به آن اضافه می شود. بعد از نصب دیگر نمی توان آنها رو جدا کرد یا اضافه کرد، مگر با کامپایل مجدد ماننده nginx_http_ssl_module
+2 Dynamic: به صورت جداگانه کامپایل می شود و هنگام اجرا با دستور لود ماژول بارگزاری می شود و نیازی و بازسازی کامل NGINX ندارد. مانند ngx_http_image_filter_nodule
+نکته: ماژول ها بر اساس عملکرد  به چند دسته دسته بندی می شود. مثلاً Core modules  که برای مدریت اصلی و ساختار های پایه کاربرد دارد. یا HTTP یا stream ها که برای TCP-UDP کاربرد دارد. و یا Mail ماژول ها که برای پورتوکل های ایمیل مثل LMAP یا SMTP
+نصب و فعال سازی ماژول داینامیک: ابتدا با این دستور nginx -v گزینه های کامپایل قبلی را میگیریم و سپس پیش نیاز ها را نصب میکنیم و سپس ماژول های خارجی را دریافت میکنیم و سپس در مسیر سورس nginx یکسری دستورات را اجرا میکنیم  (مثل make module) خروجی یک فایل .so خواهد بود و ماژول تولید شده را در جایی کپی میکنیم سپس در فایل nginx.conf این خط را (قبل بلاک http) اضافه میکنیم:     load_module   module/name_module.so;
+معمولا به همان تنظیمات که از nginx -v کپی  کردیم به آخرش اطلاعاتی اضافه میکنیم و سپس با دستور Make ان را کامپاین میکنیم
+
+
+
+
+
+
+
+
+expires headers: این هدرها به مرورگر اطلاع می دهند که یک پاسخ خاص را تا چه مدت می تواند در حافظه کش نگه دارد.
+add header: با دستور add_header می توانیم یک هدر سفارشی به پاسخ اضافه کنیم.
+add_header name_header "text"
+فعال سازی کش با هدر مناسب: 
+location ~* \.(?:css, ...) {
+    expires 30d;        کش برای ۳۰ روز اینده
+    add_header cach-control "public";       به مرورگر میگوید میتواند این فایل را کش کند
+    add_header progma "public";     برای مرورگر های قدیمی‌تر
+    add_header vary "Accept-Encoding";      سازگارس با فشرده سازی
+}
+نکته: وقتی یک فایل مانند CSS را کش می کنیم مروگر تا مدت مشخصی آن را از سرور درخواست نمی کند در این مدت حتی تغییر هم دهیم تغییرات دیده نمی شود برای حل مشکل از versioningدر URL استفاده می کنیم برای این کار به جای زخیر سازی file.css به این صورت file.css?v=1 استفاده میکنیم (در html هم باید نام راتغیر دهیم)
+نکته: کش های nginx معمولا در دیسک سرور ذخیره میشوند:    proxy_cache_path /path/to/disk;
+
+
+
+
+
+
+
+gzip: وقتی مرورگر درخواست یک فایل می دهد سرور می تواند آن را فشرده کرده و بفرستد.
+در بلاک HTTP در فایل پیکربندی می نویسیم gzip on; این فشرده سازی را برای همه فعال می کند
+سطح فشرده سازی gzip_comp_level 3 این عدد بین ۱تا۹ است هر چه عدد بالاتر فشرده سازی بهتر ولی مصرف cpu بیشتر 
+MIME TYPE ها gzip_types باید از این ها باشد text/plain, text/css, ...
+نکته: وقتی از gzip استفاده میکنیم فشرده سازی فایل های استایل ها در پروژه‌ها قبل از قرار دادن آنها در دیپلوی ضروری نیست اما اگر فایل ها سنگین هستند یا اگر ترافیک زیاد است برای کاهش مصرف cpu میتوان از فشرده سازی قبل استفاده کرد
+
+
+
+
+
+
+
+Micro cache: کش کردن پاسخ های داینامیک برای مدت بسیار کوتاه این کش این کش بار را از روی سرور برمیدارد و برای وبسایت هایی پربازدید با محتوای ثابت فوق العاده است در این حالت کش ها از دیسک ها خوانده میشود.
+Fast CGI: یک سیستم کش است در nginx در بلاک http مینویسیم: fastcgi_cache_path که برای دادن یک ویژگی هم میتوانیم این را بنویسیم  در ادامه /tmp/nginx_cache levels=1:2 keys_zone=zone1:100m inactive=60m use_temp_path=off;
+levels=1:2 ساختار دایرکتوری برای فایل های کش/ keys_zone=zone1:100m نام و اندازه حافظه برای نگه داری کلید های کش/ inactive=60 کش هایی که در این مدت استفاده نشوند پاک شوند/ use_temp_path=off بهتر است برای عملکرد بهتر بهتر باشد
+کلید کش را با دستور fastcgi_cache_key تعریف کنیم این کلید کش مشخص میکند چه چیز هایی تعیین میکنند دو درخواست یکی هستند یا خیر    fastcgi_cache_key "$scheme$request_method$host$request_uri";
+scheme==> https یا http / request_method==>GET, POST / host==> example.com / request_uri==> مسیر دقیق url
+نکته: میتوانی برای کاربران کش شده(لاگین کرده) هم کش حدا بسازیم
+HTTP: پروتوکلی است که برای انتقال داده های(js, css, ...,) بین مرورکر و سرور استفاده میشود
+HTTP/2: http نسخه های مختلفی دارد که HTTP/2 یک پروتوکل دودویی ذست در حالی که HTTP/1 متنی است.
+داده های دودویی یا همان 0, 1 روش بسیار فشرده تری برای انتقال اطلاعات هستند و احتمال بروز خطا در هنگام انتقال داده را به میزان زیادی ماهش میدهد مهم ترین ویژگی HTTP/2 از نظر عملکرد اتصال دائمی آن است
+این اتصالات همچنین قابلیت Multiplexing دارند یعنی همه فایل ها در یک اتصال از سرور دریافت میشوند. به این معنی که منابع مختلف می توانند در یک جریان دودویی ترکیب شده و از طریق یک اتصال واحد ارسال شوند. همچنین http/2 قابلیت server push هم دارد یعنی مرورگر میتواند همزمان با درخواست اولیه صفحه از وجود فایل هایی مانند(اسکریپت ها، تصاویر، و استایل ها مطلع شود)
+
+
+
+
+
+
+
+نکته : HTTPI2 فقط روی ارتباط امن (HTTPS) کار میکند به همین دلیل نیاز به گواهی ssl دارد 
+
+نصب HTTPI2 و گواهی ssl : ابتدا ماژول HTTPI2 را دریافت میکنیم و config ها راهم تغییر میدهیم و پیکربندی جدید را اجرا و دستور make کامپایل میکنیم. بعد از ان make install را اجرا میکنیم و nginx را ریستارت میکنیم .
+حال برای دریافت گواهی ssl  باید یک گواهینامه sll امضا کنیم (برای سایت های داخلی باید از گواهینامه معتبر استفاده کنیم)
+در  دایرکتوری  etc/nginx/ssl یک کلید خصوصی و گواهی نامه با دستور open ssl تقلید میکنیم .
+در حالت تست با گواهی ssl یکسری دستورات را وارد کرده و تایید میکنیم  در ادامه یکسری سوالات از ما میپرسد و در فایل nginx.conf 
+ باید این تنظیمات را هم اضافه کنیم : 
+در بلاک server : 
+losten 433 ssl http2;
+گواهی نامه  
+Ssl certificate    /etc/nginx/ssl/self.crt;
+کلیدخصوصی 
+Ssl_certificate_key   /etc/nginx/ssl/self.key;
+
+نکته : برای گواهی معتبر برای سایت های واقعی استفاده از  let's encrypt  تفسیر میشود 
+
+
+Server push : 
+این قابلیت در nginx و در httpi2 موجود است که میتوانیم با  http2_push از ان استفاده کنیم اما در حال حاضر نسخه های جدید مرورگر تقریبا منسوخ شده یا غیرفعاله و در حال حاضر از perload در html استفاده میکنند
+
+
+
+
+
+
+
+
+redirect HTTP to HTTaps:
+ اگر کاربر ادرس http  را وارد کند (پورت 80) خطا دریافت میکند زیرا پورت 80 گوش نمیدهیم یا باید پورت 80 ناامن را اضافه کنین یا یک redirect دائمی انجام دهیم 
+
+راه حل : یک بلاک جدید server میسازیم سپس درونش می‌نویسیم :  
+ Server{
+listen 80;
+return 301 https :// $host$ request_uri ; }
+ در اینجا http را به https ریدایرکت میکنیم 
+
+غیرفعال کردن پروتکل قدیمی ssl :
+Sll
+ دیگر امن نیست و باید از Tls استفاده کرد با این دستور tls نسخه های 1.2 و 1.3 فعال میشوند:
+Sll.portocols  Tlsv1.2   Tlsv1.3
+
+تعیین cipher suites :   
+با دستور sll_cipher  الگوریتم ها را روزنگاری میکنیم 
+الگوریتم روزنگاری:   (MD5)
+Sll_ciphers  'HIGH:!aNULL : ! MD5' ;
+باعث میشود سرور الگوریتم های خود را به مرورگر تحمیل کند . 
+ssl_prefer_server_ciphers on ;
+نکته : اطلاعات بین مرورگر و سرور به صورت روزنگاری شده رد و بدل میشوند
+
+
+
+
+
+
+
+
+فعال کردن  DH parameters :
+برای تقویت امنیت و استفاده از  Perfect forward secrecy  پارامترهای Diffi Helmon  را فعال میکنیم
+
+نکته:‌ PFS تضمین میکند اگر در آینده کلید خصوصی سرور لو برود اطلاعات جلسه قبلی قابل نمایش نیست 
+
+ابتدا در مسیر ان را تقلید میکنیم : 
+Open ssl dhparam _ out /etc / nginx/ssl/dhparam.pem 2048
+
+سپس مسیر آن را در پیکربندی nginx معرفی میکنیم : 
+ Ssl_dhparam  /etc/nginx/ssl/dhparam.pem;
+
+فعال کردن  strict Transport security : 
+ با این هر مرورگر فقط از HTTPS استفاده میکند 
+add_header  strict_Transport_security " max_age=31536000" always ;
+
+کش کردن  sessian های ssl :  
+برای سریع تر شدن اتصال ssl ما باید session را کش کنیم :
+کش کردن به اندازه 40 مگابایت   
+Ssl_session_cache  shared:ssl:40m
+مدت زمان یک  session معتبر 
+Ssl_session_timeout  4h;
+این بستگی به جای ذخیره سشن روی سرور توکن هایی به کلیت میده که اطلاعات سشن را نگه میدارد 
+Ssl_session_tickets  on;
+
+
+
+
+
+
+
+Rate Limiting : 
+محدود سازی نرخ درخواست ها  ابزاری است در nginx برای محافظت سرور در برابر : 
+حملات Brute_force ، ترافیک غیر منتظره ، مصرف بی رویه، api، سایت های مزاحم
+
+• برای فعال سازی باید یک zone تعریف کنیم :
+limit_req_zone  : request_LLri   zon=myzone; 10m    rat=60 rlm;
+request : آدرس خواسته شده
+ My zone :   حافظه zone نام
+10m : حافظه 
+rlm  : تعداد درخواست ها در دقیقه 
+
+• با استفاده از گزینه burst میتوان تا چند درخواست اضافی به صورت صف نگه داشت   
+limit_req  zone=myzone burst=5;
+برای اجرای درخواست های burst هم بدون تاخیر اجرا شوند آپشن های nodelay را هم اضافه میکنیم 
+
+
+Bosic Authentication : 
+اضافه کردن یک لایه ساده امنیتی با نام کاربری  و رمز عبور برای بخش های خاص وبسایت مثل  dashboard/ یا admin/
+برای  پیاده سازی ابتدا یک فایل رمز عبور ایجاد کرده و نام کاربری و رمز عبور را میدهیم  سپس در بلاک location مربوطه :
+ پیغامی که در پنجره ورود نمایش داده میشود 
+auth_basic  "secure Area";
+مسیر فایل رمز عبور
+auth_basic_user_file  /etc/nginx/.htpasswd
+
+
+
+
+
+
+
+
+افزایش امنیت NGINX :
+1. به روز رسانی nginx و کتابخانه ها ( اگر nginx را کامبایل کرده اید change log  رسمی را بررسی کنید)
+2. پنهان کردن نسخه nginx (در بلاگ http این  را اضافه میکنیم  ; server_tokens off)
+3. جلوگیری از clickjacking (با تنظیم هر  X_frame_options از نمایش سایت در iframe جلوگیری میکنیم  
+add_header x_frame_options  "SAMEORIGIN" )
+4.جلوگیری از xss با هر x_xss_protection   ( برای مقابله با اسکپیت های بین سایتی 
+add_header   x_xss_protection "1; mode= bloek";  : xss )
+5. ضعف ماژول های غیر ضروری هنگام کامپایل کردن
+Let's Enrypt : 
+یک سرویس ارائه دهنده برای صدور گواهی نامه ssl خودکار و رایگان است  معمولا برای دریافت ، نصب گواهینامه ssl از ابزار cer bot استفاده میکنیم.
+نصب cer bot و پلاگین nginx :
+Sudo apt_get install cerbot python 3_cerbot_nginx
+دریافت گواهینامه ssl : 
+Sudo cerbot .... nginx
+• در آخر برای تمدید خودکار گواهینامه  میتوانیم از یک cron jab استفاده کنیم .
+
+
+
+
+
+
+
+
+Revers proxy :
+درخواست های دریافتی از سمت کلاینت را دریافت کرده و ان ها را به سرور بک اند متصل میکند
+
+Load Balaneing : 
+ به توزیع درخواست های ورودی بین چندین سرور اشاره دارد تا از استفاده بیش از حد سرور جلوگیری شود . 
+• با proxy _pass در nginx.conf مان revers proxy را مشخص میکنیم 
+
+نکته : اسلش نهایی  در nginx بسیار مهم است سعی کنید در مواردی مشابه این 
+Procy_pass http://localhost: 9000 ;
+در آخرش (/) بگذاریم  اگر نگذاریم ممکن است با خطای 404 مواجه شویم 
+
+نکته : برای ارسال header به کلاینت (مرورگر) از add_header استفاده میکنیم و برای ارسال به بک اند از (header) و دستور proxy_set_header استفاده میکنیم 
+
+دو هدف Load balanctr :
+1. تقسیم بار (load distribution) : توزیع درخواست ها بین سرور ها 
+2. افزونگی (Readun dancy): اگر یکی از سرور ها خراب شد درخواست ها را به سرور سالم میفرستد
+
+تنظیم load balancing : در فایل config :  
+http { 
+upstream backend_servers {
+سرور 1       server local host :1001
+سرور  2       server local host :1002
+سرور 3       server local host :1003
+}
+در  location  در قسمت proxy_pass هم باید این را بنویسیم : 
+  proxy_pass  http://backend_servers; }
+
+نکته : روش های مختلف  load balancer اعم از  : 
+1. sticky session (Ip Ha sh)
+2. Least connection
