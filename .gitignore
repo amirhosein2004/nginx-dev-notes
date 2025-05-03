@@ -1,5 +1,5 @@
 # Ignore original text files
-nginx/nginx.txt
+nginx.txt
 
 # Common ignores
 .DS_Store
