@@ -1,8 +1,0 @@
-# Ignore original text files
-nginx.txt
-
-# Common ignores
-.DS_Store
-.idea/
-.vscode/
-*.log 
